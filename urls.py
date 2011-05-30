@@ -7,6 +7,8 @@ from django.conf.urls.defaults import *
 urlpatterns = patterns('',
     # Example:
     # (r'^downlocker/', include('downlocker.foo.urls')),
+    (r'resource/', include('downlocker.download.urls')),
+    (r'api/v1/', include('downlocker.api.v1.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
     # (r'^admin/doc/', include('django.contrib.admindocs.urls')),
