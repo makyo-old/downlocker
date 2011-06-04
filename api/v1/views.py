@@ -22,13 +22,16 @@ def request_nonce(request, client_token):
     return HttpResponse(t.render(c), mimetype = 'application/xml')
 
 def request_resource_url(request, nonce, auth_token):
-    
+    if (!_check_auth(nonce, auth_token)):
+        response = HttpResponse("<response><error>Permission denied: authentication token mismatch</error></response>", mimetype="application/xml")
+        response.status_code = 403
+        return response
     resource_file = request.REQUEST.get('resourceFile', None)
     if resource_file is None:
         response = HttpResponse("<response><error>Missing parameter: resourceFile</error></response>", mimetype="application/xml")
         response.status_code = 500
         return response
-
+    resource = Resource.objects.get(original_filename__exact = resource_file, 
 
 def read_resource(request, nonce, auth_token):
     pass
@@ -47,3 +50,10 @@ def mirror_resource(request, nonce, auth_token):
 
 def resource_exists(request):
     pass
+
+def _check_auth(nonce, auth_token):
+    n = Nonce.objects.get(number__exact = nonce)
+    c = n.client
+    sha = hashlib.sha1()
+    sha.update('%s:%s:%s' % (c.token, c.secret, nonce))
+    return (auth_token == sha.hexdigest())

@@ -8,4 +8,4 @@ class Client(models.Model):
 
 class Nonce(models.Model):
     client = models.ForeignKey('Client')
-    number = models.CharField(max_length = 40)
+    number = models.CharField(max_length = 40, unique = True)
