@@ -38,6 +38,7 @@ def request_resource_url(request, nonce, auth_token):
         response = HttpResponse("<response><error>Resource not found: resource id %s not found</error></response>" % resource_id, mimetype="application/xml")
         response.status_code = 404
         return response
+    
 
 def read_resource(request, nonce, auth_token):
     pass
