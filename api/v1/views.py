@@ -27,12 +27,17 @@ def request_resource_url(request, nonce, auth_token):
         response = HttpResponse("<response><error>Permission denied: authentication token mismatch</error></response>", mimetype="application/xml")
         response.status_code = 403
         return response
-    resource_file = request.REQUEST.get('resourceFile', None)
-    if resource_file is None:
-        response = HttpResponse("<response><error>Missing parameter: resourceFile</error></response>", mimetype="application/xml")
+    resource_id = request.REQUEST.get('resourceId', None)
+    if resource_id is None:
+        response = HttpResponse("<response><error>Missing parameter: resourceId</error></response>", mimetype="application/xml")
         response.status_code = 500
         return response
-    resource = Resource.objects.get(original_filename__exact = resource_file, client__id__exact = n.client.id)
+    try:
+        resource = Resource.objects.get(id__exact = resource_id)
+    except Resource.DoesNotExist:
+        response = HttpResponse("<response><error>Resource not found: resource id %s not found</error></response>" % resource_id, mimetype="application/xml")
+        response.status_code = 404
+        return response
 
 def read_resource(request, nonce, auth_token):
     pass
@@ -44,7 +49,7 @@ def update_resource(request, nonce, auth_token):
     pass
 
 def delete_resource(request, nonce, auth_token):
-    pass
+pass
 
 def mirror_resource(request, nonce, auth_token):
     pass
@@ -55,5 +60,13 @@ def resource_exists(request):
 def _check_auth(nonce, auth_token):
     c = nonce.client
     sha = hashlib.sha1()
+<<<<<<< HEAD
     sha.update('%s:%s:%s' % (c.token, c.secret, nonce.number))
     return (auth_token == sha.hexdigest())
+=======
+    sha.update('%s:%s:%s' % (c.token, c.secret, nonce))
+    if (auth_token == sha.hexdigest()):
+        return c
+    else:
+        return None
+>>>>>>> 9c5655a005a8a6ef77c5ce4db874df8e87ce4ae3
