@@ -4,6 +4,91 @@ from django.template import Template, Context
 from downlocker.download.models import *
 from downlocker.usermgmt.models import *
 
+def nonce_dispatcher(request, nonce):
+    # PUT - creates a nonce and returns it
+    # POST - increments nonce usage without requesting a resource
+    # GET - returns information about the noce without incrementing usage
+    # DELETE - expires a nonce
+    # HEAD - checks to see if a nonce exists and is usable
+
+    def get():
+        pass
+    def post():
+        pass
+    def put():
+        pass
+    def delete():
+        pass
+    def head():
+        pass
+
+    dispatch_map = {
+            'GET': get,
+            'POST': post,
+            'PUT': put,
+            'DELETE': delete,
+            'HEAD': head
+            }
+
+    return dispatch_map[request.method]()
+
+
+def resource_dispatcher(request, client_token, remote_resource_id):
+    # PUT - creates/replaces a resource
+    # POST - modifies a resource or its metadata
+    # GET - returns a resource
+    # DELETE - removes a resource
+    # HEAD - checks to see if a resource exists
+
+    def get():
+        pass
+    def post():
+        pass
+    def put():
+        pass
+    def delete():
+        pass
+    def head():
+        pass
+
+    dispatch_map = {
+            'GET': get,
+            'POST': post,
+            'PUT': put,
+            'DELETE': delete,
+            'HEAD': head
+            }
+
+    return dispatch_map[request.method]()
+
+def client_collection_dispatcher(request, client_token):
+    # PUT - unused
+    # POST - creates a resource in the collection
+    # GET - lists the resources in the collection
+    # DELETE - unused
+    # HEAD - checks to see if the collection exists
+
+    def get():
+        pass
+    def post():
+        pass
+    def put():
+        pass
+    def delete():
+        pass
+    def head():
+        pass
+
+    dispatch_map = {
+            'GET': get,
+            'POST': post,
+            'PUT': put,
+            'DELETE': delete,
+            'HEAD': head
+            }
+
+    return dispatch_map[request.method]()
+
 def request_nonce(request, client_token):
     from time import time
     
@@ -50,7 +135,7 @@ def update_resource(request, nonce, auth_token):
     pass
 
 def delete_resource(request, nonce, auth_token):
-pass
+    pass
 
 def mirror_resource(request, nonce, auth_token):
     pass
@@ -61,13 +146,5 @@ def resource_exists(request):
 def _check_auth(nonce, auth_token):
     c = nonce.client
     sha = hashlib.sha1()
-<<<<<<< HEAD
     sha.update('%s:%s:%s' % (c.token, c.secret, nonce.number))
     return (auth_token == sha.hexdigest())
-=======
-    sha.update('%s:%s:%s' % (c.token, c.secret, nonce))
-    if (auth_token == sha.hexdigest()):
-        return c
-    else:
-        return None
->>>>>>> 9c5655a005a8a6ef77c5ce4db874df8e87ce4ae3

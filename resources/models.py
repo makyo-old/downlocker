@@ -4,25 +4,24 @@ from downlocker.usermgmt.models import Client
 class Resource(models.Model):
     client = models.ForeignKey(Client)
     resource_file = models.FileField(upload_to = file_path)
-    original_filename = models.CharField(max_length = 200)
+    remote_resource_id = models.CharField(max_length = 200)
     mime_type = models.CharField(max_length = 50)
     file_digest = models.CharField(max_length = 40)
-    watermark_text = models.CharField(max_length = 140, blank = True)
-    watermark_visible = models.BooleanField(default = False)
-    watermark_stego = models.BooleanField(default = False)
-    watermark_invisible = models.BooleanField(default = False)
-    require_nonce = models.BooleanField(default = False)
-    require_client_user_watermark = models.BooleanField(default = False)
-    dnp = models.BooleanField(default = False)
-    client_resource_url = models.CharField(max_length = 2083)
+    public = models.BooleanField(default = False)
     ctime = models.DateTimeField(auto_now_add = True)
     mtime = models.DateTimeField(auto_now = True)
 
     def file_path(instance, filename):
         return "%s/%s" % (instance.vendor, filename)
 
-class AccessNonce(models.Model):
-    download = models.ForeignKey('Resource')
+def ResourceAttribute(models.model):
+    resource = models.ForeignKey('Resource')
+    key = models.CharField(max_length = 50)
+    value = models.CharField(max_length = 500)
+
+class Nonce(models.Model):
+    client = models.ForeignKey(Client)
     number = models.CharField(max_length = 40)
     times_viewed = models.IntegerField(default = 0)
     times_allowed = models.IntegerField(default = 1)
+    active = models.BooleanField(default = True)
