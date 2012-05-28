@@ -1,0 +1,4 @@
+v1 - all files public, served by apache, minimal metadata
+v2 - add in private files, some metadata, served with x-sendfile/apache
+v3 - add in watermarking, stego, etc
+v4 - add in dnp functionality

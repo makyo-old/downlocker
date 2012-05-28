@@ -1,9 +1,8 @@
 import hashlib
 from django.http import HttpResponse
 from django.template import Template, Context
-from downlocker.resources.models import *
+from downlocker.download.models import *
 from downlocker.usermgmt.models import *
-from downlocker.api.service import *
 
 def nonce_dispatcher(request, nonce):
     # PUT - creates a nonce and returns it
@@ -21,7 +20,9 @@ def nonce_dispatcher(request, nonce):
         try:
             n = Nonce.objects.get(number__exact = nonce)
         except Nonce.DoesNotExist:
-            return not_found('nonce')
+            response = HttpResponse("<response><error>Nonce does not exist</error></response>", mimetype = "application/xml")
+            response.status_code = 404
+            return response
             
         t = Template("""
         <response>
@@ -49,91 +50,29 @@ def nonce_dispatcher(request, nonce):
             })
         return HttpResponse(t.render(c), mimetype = 'application/xml')
     def post():
-        """
-        Increments nonce usage without requesting a resource
-
-        Requires auth
-        """
-        from xml.dom.minidom import parseString
-
-        # parse request.body xml: <request><auth><nonce>...</nonce><auth_token>...</auth_token></auth></request>
-        body = parseString(request.body)
-        auth = body.getElementsByTagName('auth')[0]
-        if check_auth(auth):
-            try:
-                n = Nonce.objects.get(number__exact = nonce)
-            except Nonce.DoesNotExist:
-                return not_found('nonce')
-            if n.times_viewed < n.times_allowed:
-                n.times_viewed += 1
-                if n.times_viewed == n.times_allowed:
-                    n.active = False
-                n.save()
-            return HttpResponse("<response><success>true</success></response>", mimetype = "application/xml")
-        else:
-            return auth_fail('nonce', 'POST')
+        pass
     def put():
-        """
-        Creates a nonce and returns it
-
-        Does not require auth
-        """
         from time import time
-        from xml.dom.minidom import parseString
 
-        # parse request.body xml: <request><client_token>...</client_token></request>
-        body = parseString(request.body)
-        client_token = get_text(body.getElementsByTagName('client_token')[0].childNodes)
+        # parse request.body xml: <request><client_token>asdf...</client_token></request>, possibly with times_allowed and active as well
         
         try:
             client = Client.objects.get(token__exact = client_token)
         except Client.DoesNotExist:
-            return not_found('client')
-        client.max_nonce += 1
+            response = HttpResponse("<response><error>Client does not exist</error></response>", mimetype = "application/xml")
+            response.status_code = 404
+            return response
         sha = hashlib.sha1()
-        sha.update("%f:%s:%d" % (time(), client_token, client.max_nonce))
+        sha.update("%f:%s" % (time(), client_token))
         nonce = Nonce(client = client, number = sha.hexdigest())
         nonce.save()
-        client.save()
         t = Template("<response><nonce>{{ nonce }}</nonce></response>")
         c = Context({'nonce': nonce.number})
         return HttpResponse(t.render(c), mimetype = 'application/xml')
     def delete():
-        """
-        Expires a nonce
-
-        Requires auth
-        """
-        from xml.dom.minidom import parseString
-
-        # parse request.body xml: <request><auth><nonce>...</nonce><auth_token>...</auth_token></auth></request>
-        body = parseString(request.body)
-        auth = body.getElementsByTagName('auth')[0]
-        if check_auth(auth):
-            try:
-                n = Nonce.objects.get(number__exact = nonce)
-            except Nonce.DoesNotExist:
-                return not_found('nonce')
-            n.active = False
-            n.save()
-        else:
-            return auth_fail('nonce', 'DELETE')
+        pass
     def head():
-        """
-        Checks to see if a nonce exists and is usable
-
-        Does not require auth
-        """
-        try:
-            n = Nonce.objects.get(number__exact = nonce)
-        except Nonce.DoesNotExist:
-            return not_found('nonce')
-        if n.active == True:
-            return HttpResponse("<response><success>true</success></response>", mimetype = "application/xml")
-        else:
-            response = HttpResponse("<response><error>Nonce found, but is no longer active</error></response", mimetype = "application/xml")
-            response.status_code = 410
-            return response
+        pass
 
     dispatch_map = {
             'GET': get,
@@ -142,6 +81,7 @@ def nonce_dispatcher(request, nonce):
             'DELETE': delete,
             'HEAD': head
             }
+
     return dispatch_map[request.method]()
 
 
@@ -153,11 +93,6 @@ def resource_dispatcher(request, client_token, remote_resource_id):
     # HEAD - checks to see if a resource exists
 
     def get():
-        """
-        Returns a resource
-
-        Does not require auth
-        """
         try:
             client = Client.objects.get(token__exact = client_token)
         except Client.DoesNotExist:
@@ -170,7 +105,15 @@ def resource_dispatcher(request, client_token, remote_resource_id):
             response = HttpResponse("<response><error>Resource does not exist</error></response>", mimetype = "application/xml")
             response.status_code = 404
             return response
-        # TODO just redirect to file
+        if r.public or _check_auth(request.GET.get('nonce', None), request.GET.get('auth_token', None)):
+            response = HttpResponse(mimetype = r.mime_type)
+            response['X-Sendfile'] = smart_str("filename") # TODO
+            response['Content-length'] = r.resource_file.length # TODO
+            return response
+        else:
+            response = HttpResponse("<response><error>Resource is not public and authorization failed</error></response>", mimetype = "application/xml")
+            response.status_code = 403
+            return response
     def post():
         pass
     def put():
@@ -258,3 +201,63 @@ def client_collection_dispatcher(request, client_token):
             }
 
     return dispatch_map[request.method]()
+
+def request_nonce(request, client_token):
+    from time import time
+    
+    try:
+        client = Client.objects.get(token__exact = client_token)
+    except Client.DoesNotExist:
+        response = HttpResponse("<response><error>Client does not exist</error></response>", mimetype = "application/xml")
+        response.status_code = 404
+        return response
+    sha = hashlib.sha1()
+    sha.update("%f:%s" * (time(), client_token))
+    nonce = Nonce(client = client, number = sha.hexdigest())
+    nonce.save()
+    t = Template("<response><nonce>{{ nonce }}</nonce></response>")
+    c = Context({'nonce': nonce.number})
+    return HttpResponse(t.render(c), mimetype = 'application/xml')
+
+def request_resource_url(request, nonce, auth_token):
+    n = Nonce.objects.get(number__exact = nonce)
+    if (!_check_auth(n, auth_token)):
+        response = HttpResponse("<response><error>Permission denied: authentication token mismatch</error></response>", mimetype="application/xml")
+        response.status_code = 403
+        return response
+    resource_id = request.REQUEST.get('resourceId', None)
+    if resource_id is None:
+        response = HttpResponse("<response><error>Missing parameter: resourceId</error></response>", mimetype="application/xml")
+        response.status_code = 500
+        return response
+    try:
+        resource = Resource.objects.get(id__exact = resource_id)
+    except Resource.DoesNotExist:
+        response = HttpResponse("<response><error>Resource not found: resource id %s not found</error></response>" % resource_id, mimetype="application/xml")
+        response.status_code = 404
+        return response
+    
+
+def read_resource(request, nonce, auth_token):
+    pass
+
+def create_resource(request, nonce, auth_token):
+    pass
+
+def update_resource(request, nonce, auth_token):
+    pass
+
+def delete_resource(request, nonce, auth_token):
+    pass
+
+def mirror_resource(request, nonce, auth_token):
+    pass
+
+def resource_exists(request):
+    pass
+
+def _check_auth(nonce, auth_token):
+    c = nonce.client
+    sha = hashlib.sha1()
+    sha.update('%s:%s:%s' % (c.token, c.secret, nonce.number))
+    return (auth_token == sha.hexdigest())

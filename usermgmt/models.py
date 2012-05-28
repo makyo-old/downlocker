@@ -7,3 +7,4 @@ class Client(models.Model):
     secret = models.CharField(max_length = 40)
     name = models.CharField(max_length = 200)
     description = models.TextField(blank = True)
+    max_nonce = models.IntegerField(default = 0)
