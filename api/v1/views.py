@@ -12,11 +12,63 @@ def nonce_dispatcher(request, nonce):
     # HEAD - checks to see if a nonce exists and is usable
 
     def get():
-        pass
+        """
+        Returns information about a given nonce without incrementing usage
+
+        Does not require auth
+        """
+        try:
+            n = Nonce.objects.get(number__exact = nonce)
+        except Nonce.DoesNotExist:
+            response = HttpResponse("<response><error>Nonce does not exist</error></response>", mimetype = "application/xml")
+            response.status_code = 404
+            return response
+            
+        t = Template("""
+        <response>
+          <nonce>
+            <id>{{ id }}</id>
+            <client>
+              <id>{{ client_id }}</id>
+              <client_token>{{ client_token }}</client_token>
+            </client>
+            <number>{{ number }}</number>
+            <times_allowed>{{ times_allowed }}</times_allowed>
+            <times_viewed>{{ times_viewed }}</times_viewed>
+            <active>{{ active }}</active>
+          </nonce>
+        </response>
+                """)
+        c = Context({
+            id: n.id,
+            client_id: n.client.id,
+            client_token: n.client_token,
+            number: n.number,
+            times_allowed: n.times_allowed,
+            times_viewed: n.times_viewed,
+            active: n.active
+            })
+        return HttpResponse(t.render(c), mimetype = 'application/xml')
     def post():
         pass
     def put():
-        pass
+        from time import time
+
+        # parse request.body xml: <request><client_token>asdf...</client_token></request>, possibly with times_allowed and active as well
+        
+        try:
+            client = Client.objects.get(token__exact = client_token)
+        except Client.DoesNotExist:
+            response = HttpResponse("<response><error>Client does not exist</error></response>", mimetype = "application/xml")
+            response.status_code = 404
+            return response
+        sha = hashlib.sha1()
+        sha.update("%f:%s" % (time(), client_token))
+        nonce = Nonce(client = client, number = sha.hexdigest())
+        nonce.save()
+        t = Template("<response><nonce>{{ nonce }}</nonce></response>")
+        c = Context({'nonce': nonce.number})
+        return HttpResponse(t.render(c), mimetype = 'application/xml')
     def delete():
         pass
     def head():
@@ -41,7 +93,27 @@ def resource_dispatcher(request, client_token, remote_resource_id):
     # HEAD - checks to see if a resource exists
 
     def get():
-        pass
+        try:
+            client = Client.objects.get(token__exact = client_token)
+        except Client.DoesNotExist:
+            response = HttpResponse("<response><error>Client does not exist</error></response>", mimetype = "application/xml")
+            response.status_code = 404
+            return response
+        try:
+            r = Resource.objects.get(client__exact = client, remote_resource_id__exact = remote_resource_id)
+        except Resource.DoesNotExist:
+            response = HttpResponse("<response><error>Resource does not exist</error></response>", mimetype = "application/xml")
+            response.status_code = 404
+            return response
+        if r.public or _check_auth(request.GET.get('nonce', None), request.GET.get('auth_token', None)):
+            response = HttpResponse(mimetype = r.mime_type)
+            response['X-Sendfile'] = smart_str("filename") # TODO
+            response['Content-length'] = r.resource_file.length # TODO
+            return response
+        else:
+            response = HttpResponse("<response><error>Resource is not public and authorization failed</error></response>", mimetype = "application/xml")
+            response.status_code = 403
+            return response
     def post():
         pass
     def put():
@@ -61,6 +133,41 @@ def resource_dispatcher(request, client_token, remote_resource_id):
 
     return dispatch_map[request.method]()
 
+def metadata_dispatcher(request, client_token, remote_resource_id):
+    # PUT - unused
+    # POST - modifies a resource's metadata
+    # GET - returns a resource's metadata
+    # DELETE - unused
+    # HEAD - checks to see if a resource exists
+
+    def get():
+        pass
+    def post():
+        pass
+    def put():
+        response = HttpResponse("<response><error>Request method not supported</error></response>", mimetype = "application/xml")
+        response.status_code = 405
+        response['Allow'] = "GET,POST,HEAD"
+        return response
+    def delete():
+        response = HttpResponse("<response><error>Request method not supported</error></response>", mimetype = "application/xml")
+        response.status_code = 405
+        response['Allow'] = "GET,POST,HEAD"
+        return response
+    def head():
+        pass
+
+    dispatch_map = {
+            'GET': get,
+            'POST': post,
+            'PUT': put,
+            'DELETE': delete,
+            'HEAD': head
+            }
+
+    return dispatch_map[request.method]()
+
+
 def client_collection_dispatcher(request, client_token):
     # PUT - unused
     # POST - creates a resource in the collection
@@ -73,9 +180,15 @@ def client_collection_dispatcher(request, client_token):
     def post():
         pass
     def put():
-        pass
+        response = HttpResponse("<response><error>Request method not supported</error></response>", mimetype = "application/xml")
+        response.status_code = 405
+        response['Allow'] = "GET,POST,HEAD"
+        return response
     def delete():
-        pass
+        response = HttpResponse("<response><error>Request method not supported</error></response>", mimetype = "application/xml")
+        response.status_code = 405
+        response['Allow'] = "GET,POST,HEAD"
+        return response
     def head():
         pass
 

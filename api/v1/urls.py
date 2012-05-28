@@ -3,6 +3,7 @@ from django.conf.urls.defaults import *
 urlpatterns = patterns('downlocker.api.v1.views',
     (r'^resource((?P<client_token>.+)$', 'client_collection_dispatcher'),
     (r'^resource/(?P<client_token>.+)/(?P<remote_resource_id>.+)$', 'resource_dispatcher'),
+    (r'^metadata/(?P<client_token>.+)/(?P<remote_resource_id>.+)$', 'metadata_dispatcher'),
     (r'^nonce/(?P<nonce>.*)', 'nonce_dispatcher'),
     #(r'^requestNonce/(?P<client_token>.+)/$', 'request_nonce'),
     #(r'^requestResourceURL/(?P<nonce>.+)/(?P<auth_token>.+)/$', 'request_resource_url'),
